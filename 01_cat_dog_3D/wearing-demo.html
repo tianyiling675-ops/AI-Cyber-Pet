@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>宠物项圈佩戴动画 · 双适配方案</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0c10; --panel:rgba(18,22,30,.72); --ink:#e8edf4; --ink-dim:#8b97a8;
+  --line:rgba(255,255,255,.12); --accent:#7cf5c4; --band:#14171c;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+  font-family:'Sora',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.glow{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(60% 48% at 60% 30%,rgba(70,211,255,.12),transparent 72%),
+             radial-gradient(44% 50% at 25% 74%,rgba(124,245,196,.10),transparent 70%);
+  mix-blend-mode:screen}
+.top{position:fixed;left:24px;right:24px;top:20px;z-index:5;display:flex;align-items:center;gap:14px}
+.back,.play{border:1px solid var(--line);background:rgba(18,22,30,.78);color:var(--ink);
+  backdrop-filter:blur(14px);border-radius:8px;padding:10px 14px;font-size:12px;font-weight:700;
+  cursor:pointer;transition:.2s;white-space:nowrap}
+.back:hover,.play:hover{border-color:var(--accent);background:rgba(124,245,196,.10)}
+.title{min-width:0}
+.title .k{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.title h1{font-family:'Noto Serif SC',serif;font-size:24px;line-height:1.15;margin-top:3px}
+.title h1 span{font-family:'Sora';font-weight:400;color:var(--ink-dim);font-size:11px;letter-spacing:.14em;margin-left:8px}
+.stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+svg{width:min(100vw,1220px);height:min(78vh,760px);display:block;overflow:visible}
+.stepbar{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:4;
+  display:grid;grid-template-columns:repeat(4,112px);gap:8px}
+.step{border:1px solid var(--line);background:rgba(18,22,30,.62);backdrop-filter:blur(14px);
+  border-radius:8px;padding:9px 12px;text-align:center;color:var(--ink-dim);font-size:12px;font-weight:700}
+.step.on{border-color:var(--accent);color:var(--accent);background:rgba(124,245,196,.10)}
+.caption{position:fixed;left:24px;bottom:26px;z-index:4;color:var(--ink-dim);font-size:12px;line-height:1.65;
+  max-width:330px;background:rgba(10,12,16,.52);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:12px 14px}
+.cat-fill{fill:#22272f}
+.cat-dark{fill:#15191f}
+.cat-line{stroke:#3f4752;stroke-width:2.2;fill:none;stroke-linecap:round}
+.fur{fill:#313842;opacity:.62}
+.collar-main{fill:none;stroke:var(--band);stroke-width:34;stroke-linecap:round;filter:url(#softShadow)}
+.collar-hi{fill:none;stroke:rgba(255,255,255,.20);stroke-width:8;stroke-linecap:round;mix-blend-mode:screen}
+.collar-inner{fill:none;stroke:#06080b;stroke-width:14;stroke-linecap:round;opacity:.72}
+.tongue{fill:none;stroke:#10161c;stroke-width:18;stroke-linecap:round}
+.fit-band{fill:none;stroke:rgba(124,245,196,.74);stroke-width:10;stroke-linecap:round}
+.fit-rail{fill:none;stroke:rgba(124,245,196,.35);stroke-width:3;stroke-linecap:round;stroke-dasharray:5 7}
+.seam{stroke:#050608;stroke-width:4;stroke-linecap:round}
+.port{fill:#05070a;stroke:#202a31;stroke-width:1.5}
+.pin{fill:#d6b96a}
+.touch{fill:#101820;stroke:var(--accent);stroke-width:2}
+.touch-dot{fill:var(--accent)}
+.ghost{fill:none;stroke:rgba(124,245,196,.24);stroke-width:2;stroke-dasharray:7 9}
+.arrow{stroke:var(--accent);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.7}
+@media(max-width:760px){
+  .top{left:14px;right:14px;top:14px}.title h1{font-size:19px}.title h1 span{display:block;margin-left:0;margin-top:4px}
+  .stepbar{grid-template-columns:repeat(3,1fr);left:14px;right:14px;transform:none}.caption{display:none}
+}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="top">
+  <button class="back" id="back">返回模型</button>
+  <div class="title">
+    <div class="k">Wear Demo</div>
+    <h1>宠物项圈双方案佩戴动画<span>C 型开合 · 柔性叠带适配 · 安全闭合</span></h1>
+  </div>
+  <button class="play" id="replay">重新播放</button>
+</div>
+
+<div class="stage">
+<svg id="demo" viewBox="0 0 900 620" role="img" aria-label="宠物项圈 C 型开合与柔性叠带适配动画">
+  <defs>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000" flood-opacity=".45"/>
+    </filter>
+    <linearGradient id="ground" x1="0" x2="1">
+      <stop offset="0" stop-color="#1a242d" stop-opacity=".52"/>
+      <stop offset="1" stop-color="#30343a" stop-opacity=".50"/>
+    </linearGradient>
+    <marker id="arrowHead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0 0 L8 4 L0 8 Z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+
+  <ellipse cx="450" cy="538" rx="310" ry="48" fill="url(#ground)"/>
+  <ellipse cx="450" cy="540" rx="170" ry="24" fill="#080a0e" opacity=".42"/>
+
+  <g id="cat">
+    <path class="cat-dark" d="M255 565 C278 482 342 430 450 430 C558 430 622 482 645 565 Z"/>
+    <path class="cat-fill" d="M312 272 C312 176 372 116 450 116 C528 116 588 176 588 272 C588 358 536 419 450 419 C364 419 312 358 312 272 Z"/>
+    <path class="cat-fill" d="M334 176 L302 82 L386 136 Z"/>
+    <path class="cat-fill" d="M566 176 L598 82 L514 136 Z"/>
+    <path class="fur" d="M342 168 L324 114 L372 148 Z"/>
+    <path class="fur" d="M558 168 L576 114 L528 148 Z"/>
+    <path class="cat-dark" d="M368 404 C384 432 415 447 450 447 C485 447 516 432 532 404 L548 486 C514 506 386 506 352 486 Z"/>
+    <path class="cat-line" d="M402 245 C418 236 432 236 444 246"/>
+    <path class="cat-line" d="M456 246 C468 236 482 236 498 245"/>
+    <path class="cat-line" d="M450 268 C444 280 444 288 450 296 C456 288 456 280 450 268 Z"/>
+    <path class="cat-line" d="M450 302 C438 318 414 322 396 312"/>
+    <path class="cat-line" d="M450 302 C462 318 486 322 504 312"/>
+    <path class="cat-line" d="M365 286 L292 274 M367 308 L292 318 M535 286 L608 274 M533 308 L608 318"/>
+  </g>
+
+  <ellipse id="target" class="ghost" cx="450" cy="392" rx="168" ry="74"/>
+  <path id="motionArrow" class="arrow" marker-end="url(#arrowHead)" d="M450 510 C450 475 450 448 450 416"/>
+
+  <g id="collar">
+    <path id="leftOuter" class="collar-main"/>
+    <path id="rightOuter" class="collar-main"/>
+    <path id="leftInner" class="collar-inner"/>
+    <path id="rightInner" class="collar-inner"/>
+    <path id="leftHi" class="collar-hi"/>
+    <path id="rightHi" class="collar-hi"/>
+    <path id="tongue" class="tongue"/>
+    <path id="fitRail" class="fit-rail"/>
+    <path id="fitBand" class="fit-band"/>
+    <line id="seamL" class="seam"/>
+    <line id="seamR" class="seam"/>
+    <g id="charge">
+      <rect class="port" x="-16" y="-10" width="32" height="20" rx="5"/>
+      <circle class="pin" cx="-9" cy="0" r="2.4"/>
+      <circle class="pin" cx="-3" cy="0" r="2.4"/>
+      <circle class="pin" cx="3" cy="0" r="2.4"/>
+      <circle class="pin" cx="9" cy="0" r="2.4"/>
+    </g>
+    <g id="touch">
+      <circle class="touch" r="13"/>
+      <circle class="touch-dot" r="3.2"/>
+    </g>
+  </g>
+</svg>
+</div>
+
+<div class="caption" id="caption">C 型安全开合先张开，解决怎么戴上。</div>
+<div class="stepbar">
+  <div class="step on" id="s0">C 型打开</div>
+  <div class="step" id="s1">绕入</div>
+  <div class="step" id="s2">调节</div>
+  <div class="step" id="s3">闭合</div>
+</div>
+
+<script type="module">
+import { STYLES } from './modules/data.js';
+
+const Q = new URLSearchParams(location.search);
+const S = STYLES[Q.get('style') || 'sport'] || STYLES.sport;
+const toHex = n => '#' + n.toString(16).padStart(6, '0');
+document.documentElement.style.setProperty('--band', toHex(S.band));
+document.documentElement.style.setProperty('--accent', toHex(S.accent));
+
+const $ = id => document.getElementById(id);
+const paths = {
+  leftOuter:$('leftOuter'), rightOuter:$('rightOuter'),
+  leftInner:$('leftInner'), rightInner:$('rightInner'),
+  leftHi:$('leftHi'), rightHi:$('rightHi'),
+  tongue:$('tongue'), fitBand:$('fitBand'), fitRail:$('fitRail'), seamL:$('seamL'), seamR:$('seamR'),
+  charge:$('charge'), touch:$('touch'), arrow:$('motionArrow')
+};
+const steps = [$('s0'), $('s1'), $('s2')];
+const caption = $('caption');
+let start = performance.now();
+
+function smooth(x){ return x*x*(3-2*x); }
+function mix(a,b,t){ return a + (b-a)*t; }
+function point(cx, cy, rx, ry, a){
+  return { x: cx + Math.cos(a)*rx, y: cy + Math.sin(a)*ry };
+}
+function polyArc(cx, cy, rx, ry, startA, endA, n = 44){
+  if(endA < startA) endA += Math.PI * 2;
+  let d = '';
+  for(let i=0;i<=n;i++){
+    const a = startA + (endA-startA)*i/n;
+    const p = point(cx, cy, rx, ry, a);
+    d += (i ? ' L ' : 'M ') + p.x.toFixed(1) + ' ' + p.y.toFixed(1);
+  }
+  return d;
+}
+function placeFeature(el, cx, cy, rx, ry, a, extraRot = 0){
+  const p = point(cx, cy, rx, ry, a);
+  const deg = (a * 180 / Math.PI) + 90 + extraRot;
+  el.setAttribute('transform', `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${deg.toFixed(1)})`);
+}
+function setSeam(line, cx, cy, rx, ry, a){
+  const p1 = point(cx, cy, rx - 15, ry - 7, a);
+  const p2 = point(cx, cy, rx + 20, ry + 9, a);
+  line.setAttribute('x1', p1.x); line.setAttribute('y1', p1.y);
+  line.setAttribute('x2', p2.x); line.setAttribute('y2', p2.y);
+}
+function setStep(i){
+  steps.forEach((s, idx)=>s.classList.toggle('on', idx === i));
+  caption.textContent = [
+    'C 型安全开合先张开，解决怎么戴上。',
+    '张开的开合段从下方绕入脖颈，避开耳朵和头部。',
+    '连续柔性叠带在内侧收放，适配猫、小型犬到大型犬的不同颈围。',
+    '磁吸安全扣闭合，外观恢复净面圆环；被挂住时仍可安全脱开。'
+  ][i];
+}
+function render(now){
+  const cycle = 7200;
+  const p = ((now - start) % cycle) / cycle;
+  let stage = 0;
+  let cy = 488, gap = 1.18, rx = 170, ry = 72, arrowOpacity = .75;
+  let fitSpan = .48, fitOpacity = .35;
+
+  if(p < .20){
+    const t = smooth(p / .20);
+    cy = mix(500, 476, t);
+    gap = mix(1.18, 1.10, t);
+    stage = 0;
+  } else if(p < .46){
+    const t = smooth((p - .20) / .26);
+    cy = mix(476, 392, t);
+    gap = 1.10;
+    stage = 1;
+  } else if(p < .68){
+    const t = smooth((p - .46) / .22);
+    cy = 392;
+    gap = mix(1.10, .42, t);
+    fitSpan = mix(.48, 1.18, t);
+    fitOpacity = .90;
+    stage = 2;
+  } else if(p < .86){
+    const t = smooth((p - .68) / .18);
+    cy = 392;
+    gap = mix(.42, .18, t);
+    fitSpan = mix(1.18, .78, t);
+    fitOpacity = .88;
+    stage = 3;
+  } else {
+    cy = 392;
+    gap = .18;
+    fitSpan = .78;
+    fitOpacity = .82;
+    arrowOpacity = 0;
+    stage = 3;
+  }
+
+  const cx = 450;
+  const bottom = Math.PI / 2;
+  const top = Math.PI * 1.5;
+  paths.leftOuter.setAttribute('d', polyArc(cx, cy, rx, ry, bottom + gap/2, top, 52));
+  paths.rightOuter.setAttribute('d', polyArc(cx, cy, rx, ry, top, bottom - gap/2 + Math.PI*2, 52));
+  paths.leftInner.setAttribute('d', polyArc(cx, cy, rx, ry, bottom + gap/2, top, 52));
+  paths.rightInner.setAttribute('d', polyArc(cx, cy, rx, ry, top, bottom - gap/2 + Math.PI*2, 52));
+  paths.leftHi.setAttribute('d', polyArc(cx, cy - 3, rx - 4, ry - 4, bottom + gap/2 + .10, top - .10, 44));
+  paths.rightHi.setAttribute('d', polyArc(cx, cy - 3, rx - 4, ry - 4, top + .10, bottom - gap/2 + Math.PI*2 - .10, 44));
+  paths.tongue.setAttribute('d', polyArc(cx, cy, rx - 35, ry - 16, bottom - Math.max(.12, gap*.36), bottom + Math.max(.12, gap*.36), 24));
+  paths.fitRail.setAttribute('d', polyArc(cx, cy, rx - 58, ry - 27, bottom - .65, bottom + .65, 36));
+  paths.fitBand.setAttribute('d', polyArc(cx, cy, rx - 55, ry - 25, bottom - fitSpan/2, bottom + fitSpan/2, 36));
+  paths.fitRail.style.opacity = fitOpacity * .8;
+  paths.fitBand.style.opacity = fitOpacity;
+  setSeam(paths.seamL, cx, cy, rx, ry, bottom + gap/2);
+  setSeam(paths.seamR, cx, cy, rx, ry, bottom - gap/2);
+  placeFeature(paths.charge, cx, cy, rx, ry, Math.PI * .84);
+  placeFeature(paths.touch, cx, cy, rx, ry, Math.PI * .16);
+  paths.arrow.style.opacity = arrowOpacity;
+
+  setStep(stage);
+  requestAnimationFrame(render);
+}
+
+$('back').onclick = () => { location.href = 'pet-collar-3d.html'; };
+$('replay').onclick = () => { start = performance.now(); };
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

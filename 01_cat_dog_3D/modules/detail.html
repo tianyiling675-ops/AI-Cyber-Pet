@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>模块详情 · 智能项圈</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-0:#0a0c10; --ink:#e8edf4; --ink-dim:#8b97a8;
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --accent:#7cf5c4; --accent-2:#46d3ff;
+  --panel:rgba(18,22,30,.72);
+}
+html,body{height:100%;background:var(--bg-0);color:var(--ink);
+  font-family:'Sora',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+.glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(60% 50% at 70% 30%,rgba(70,211,255,.10),transparent 70%),
+             radial-gradient(50% 55% at 25% 75%,rgba(124,245,196,.09),transparent 70%);
+  mix-blend-mode:screen}
+#stage{position:fixed;inset:0;z-index:1}
+canvas{display:block}
+
+/* 顶栏 */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:16px;
+  padding:18px 26px;background:linear-gradient(180deg,rgba(10,12,16,.88),transparent)}
+.back{display:flex;align-items:center;gap:7px;font-family:'Sora';font-size:12px;font-weight:600;
+  letter-spacing:.06em;color:var(--ink);background:rgba(18,22,30,.8);border:1px solid var(--line-2);
+  padding:10px 16px;border-radius:30px;cursor:pointer;backdrop-filter:blur(12px);transition:all .2s;white-space:nowrap}
+.back::before{content:'←';font-size:14px}
+.back:hover{border-color:var(--accent);background:rgba(124,245,196,.12)}
+.tname{flex:1;min-width:0}
+.tname .k{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
+.tname h1{font-family:'Noto Serif SC',serif;font-weight:900;font-size:25px;line-height:1.15;margin-top:2px}
+.tname h1 i{font-style:normal;font-family:'Sora';font-weight:300;font-size:11px;letter-spacing:.18em;color:var(--ink-dim);margin-left:10px}
+.ctrl{display:flex;align-items:center;gap:9px}
+.ctrl select{font-family:'Sora';font-size:12px;color:var(--ink);background:rgba(18,22,30,.8);
+  border:1px solid var(--line-2);padding:9px 12px;border-radius:10px;cursor:pointer;backdrop-filter:blur(12px);outline:none}
+.ctrl select:hover{border-color:var(--accent)}
+.ctrl select option{background:#11151c}
+.chk{display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;user-select:none;
+  background:rgba(18,22,30,.8);border:1px solid var(--line-2);padding:9px 13px;border-radius:10px;backdrop-filter:blur(12px);white-space:nowrap}
+.chk input{accent-color:var(--accent);cursor:pointer}
+
+/* 右侧信息栏 */
+.side{position:fixed;top:88px;right:22px;bottom:22px;width:330px;z-index:15;
+  display:flex;flex-direction:column;gap:13px;overflow-y:auto;padding-right:4px}
+.side::-webkit-scrollbar{width:6px}
+.side::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+.card{background:var(--panel);backdrop-filter:blur(22px) saturate(140%);border:1px solid var(--line);
+  border-radius:18px;padding:17px 18px 15px;box-shadow:0 20px 50px rgba(0,0,0,.4)}
+.card h3{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim);font-weight:600;margin-bottom:11px}
+.specs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.specs div{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:11px;padding:9px 11px}
+.specs b{font-family:'Sora';font-weight:700;font-size:15px;display:block;color:var(--accent)}
+.specs span{font-size:10px;letter-spacing:.06em;color:var(--ink-dim)}
+.principle{font-size:13px;line-height:1.75;color:var(--ink);opacity:.86}
+.principle .ph,.blueprint .ph{color:var(--ink-dim);font-style:italic;opacity:.7}
+.blueprint{min-height:110px}
+.blueprint .ph{text-align:center;padding:26px 0;font-size:12px}
+.hint{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:15;
+  font-size:11px;letter-spacing:.18em;color:var(--ink-dim);text-transform:uppercase;opacity:.5;white-space:nowrap}
+@media(max-width:920px){
+  .side{width:auto;left:14px;right:14px;top:auto;bottom:14px;max-height:44%}
+  .tname h1{font-size:19px}.ctrl select{padding:8px 10px}
+}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div id="stage"></div>
+
+<div class="topbar">
+  <button class="back" id="back">返回全景</button>
+  <div class="tname">
+    <div class="k" id="mk">Module</div>
+    <h1><span id="mn">模块</span><i id="ms"></i></h1>
+  </div>
+  <div class="ctrl">
+    <select id="styleSel"></select>
+    <label class="chk"><input type="checkbox" id="explode"> 爆炸图</label>
+  </div>
+</div>
+
+<aside class="side">
+  <div class="card"><h3>技术参数</h3><div class="specs" id="specs"></div></div>
+  <div class="card"><h3>设计原理</h3><div class="principle" id="principle"></div></div>
+  <div class="card"><h3>设计图纸</h3><div class="blueprint" id="blueprint"></div></div>
+</aside>
+
+<div class="hint">拖动旋转 · 滚轮缩放 · 勾选爆炸图查看内部结构</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "../vendor/three/build/three.module.js",
+  "three/addons/": "../vendor/three/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { STYLES, SENSORS } from './data.js';
+
+/* ---- 解析 URL：当前模块 + 初始同步状态 ---- */
+const Q = new URLSearchParams(location.search);
+const id = Q.get('id') || 'pod';
+const sensor = SENSORS.find(s => s.id === id) || SENSORS[0];
+let sync = {
+  style: Q.get('style') || 'sport',
+  size: +(Q.get('size') || 32),
+  tubeScale: +(Q.get('tubeScale') || 1),
+  moduleScale: +(Q.get('moduleScale') || 1),
+};
+let local = { explode: false };
+
+/* ---- 跨页面实时同步（与主页 pet-collar-3d.html 共用通道） ---- */
+const SYNC_KEYS = ['style', 'size', 'tubeScale', 'moduleScale'];
+const ch = new BroadcastChannel('collar-sync');
+ch.onmessage = (e) => {
+  const m = e.data; if (!m || m.type !== 'state') return;
+  let changed = false;
+  SYNC_KEYS.forEach(k => { if (m.state[k] !== undefined && m.state[k] !== sync[k]) { sync[k] = m.state[k]; changed = true; } });
+  if (changed) { syncCtrl(); buildModule(); }
+};
+function broadcast() {
+  const p = {}; SYNC_KEYS.forEach(k => p[k] = sync[k]);
+  ch.postMessage({ type: 'state', state: p });
+}
+
+/* ---- Three.js 场景 ---- */
+let scene, camera, renderer, controls, clock = new THREE.Clock();
+let moduleRoot, lift, led, explodeF = 0;
+
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0c10);
+  scene.fog = new THREE.Fog(0x0a0c10, 10, 26);
+  camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+  camera.position.set(0, 1.1, 5.6);
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.getElementById('stage').appendChild(renderer.domElement);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(4, 7, 5); key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048); key.shadow.camera.near = 1; key.shadow.camera.far = 20;
+  key.shadow.camera.left = -4; key.shadow.camera.right = 4; key.shadow.camera.top = 4; key.shadow.camera.bottom = -4;
+  key.shadow.bias = -0.0004; scene.add(key);
+  const rim = new THREE.DirectionalLight(0x46d3ff, 1.3); rim.position.set(-5, 3, -4); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x7cf5c4, 0.5); fill.position.set(-2, -2, 3); scene.add(fill);
+  scene.add(new THREE.AmbientLight(0x404858, 0.6));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(10, 80),
+    new THREE.MeshStandardMaterial({ color: 0x0c0e13, roughness: 0.55, metalness: 0.4 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -1.8; ground.receiveShadow = true; scene.add(ground);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.target.set(0, 0, 0); controls.minDistance = 2.5; controls.maxDistance = 12;
+
+  buildStyleSel();
+  buildModule();
+  fillInfo();
+  addEventListener('resize', onResize);
+  animate();
+}
+
+/* ---- 风格下拉 ---- */
+function buildStyleSel() {
+  const sel = document.getElementById('styleSel');
+  for (const [k, S] of Object.entries(STYLES)) {
+    const o = document.createElement('option'); o.value = k; o.textContent = S.name;
+    if (k === sync.style) o.selected = true; sel.appendChild(o);
+  }
+  sel.onchange = () => { sync.style = sel.value; buildModule(); broadcast(); };
+}
+function syncCtrl() { const s = document.getElementById('styleSel'); if (s) s.value = sync.style; }
+
+/* ---- 资源清理 ---- */
+function disposeGroup(g) {
+  g.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(x => x.dispose()); }
+  });
+}
+
+/* ---- 构建单个模块（放大特写，复用主页几何逻辑） ---- */
+function buildModule() {
+  if (moduleRoot) { scene.remove(moduleRoot); disposeGroup(moduleRoot); }
+  moduleRoot = new THREE.Group();
+  const S = STYLES[sync.style], ms = sync.moduleScale, big = sensor.big;
+  const w = (big ? 0.95 : 0.54) * ms, hgt = (big ? 0.62 : 0.42) * ms, d = (big ? 0.40 : 0.26) * ms;
+  const phys = (c, r, m, cc) => new THREE.MeshPhysicalMaterial({ color: c, roughness: r, metalness: m, clearcoat: cc ?? 0, clearcoatRoughness: 0.2, envMapIntensity: 1.3 });
+  const matPod = phys(S.pod, S.podRough, S.podMetal, 1);
+  const matAcc = new THREE.MeshStandardMaterial({ color: S.accent, roughness: 0.3, metalness: 0.4, emissive: S.accent, emissiveIntensity: 0.15 });
+  const matBuckle = new THREE.MeshStandardMaterial({ color: S.buckle, roughness: 0.25, metalness: S.buckleMetal, envMapIntensity: 1.5 });
+  const matPCB = new THREE.MeshStandardMaterial({ color: 0x0c2a1e, roughness: 0.55, metalness: 0.3 });
+  const matGold = new THREE.MeshStandardMaterial({ color: 0xe8c87a, roughness: 0.25, metalness: 1.0 });
+  const matInterior = new THREE.MeshStandardMaterial({ color: 0x050608, roughness: 0.92, metalness: 0 });
+  const matGlow = new THREE.MeshStandardMaterial({ color: S.accent, roughness: 0.4, metalness: 0.3, emissive: S.accent, emissiveIntensity: 0.6 });
+
+  lift = new THREE.Group(); const mount = new THREE.Group();
+  moduleRoot.add(mount); moduleRoot.add(lift);
+  const form = S.form; let shell, topY = hgt / 2;
+  if (form === 'tactical') {
+    shell = new THREE.Mesh(new RoundedBoxGeometry(w, hgt, d, 3, 0.04), matPod); lift.add(shell);
+    const cham = new THREE.Mesh(new RoundedBoxGeometry(w * 0.6, hgt * 0.5, d + 0.04, 2, 0.03), phys(S.accent, 0.4, 0.5)); lift.add(cham);
+    const slit = new THREE.Mesh(new THREE.BoxGeometry(w * 0.8, 0.03, d * 0.8), matAcc); slit.position.y = hgt * 0.28; lift.add(slit);
+  } else if (form === 'slim') {
+    shell = new THREE.Mesh(new THREE.CapsuleGeometry(hgt * 0.5, w * 0.8, 8, 24), matPod); shell.rotation.z = Math.PI / 2; lift.add(shell); topY = hgt * 0.5;
+  } else if (form === 'bubble') {
+    shell = new THREE.Mesh(new THREE.SphereGeometry(hgt * 0.62, 32, 24), matPod); shell.scale.set(w / (hgt * 1.24), 1, d / (hgt * 1.24)); lift.add(shell); topY = hgt * 0.62 * 0.92;
+  } else if (form === 'classic') {
+    shell = new THREE.Mesh(new RoundedBoxGeometry(w, hgt, d * 0.7, 4, 0.06), matBuckle); lift.add(shell);
+    const rv = phys(S.buckle, 0.2, 0.95);
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), rv); p.position.set(sx * w * 0.36, sy * hgt * 0.3, d * 0.35); lift.add(p); }
+  } else if (form === 'armor') {
+    shell = new THREE.Mesh(new THREE.CylinderGeometry(hgt * 0.6, hgt * 0.6, w, 6), matPod); shell.rotation.z = Math.PI / 2; shell.rotation.x = Math.PI / 2; lift.add(shell);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(hgt * 0.42, hgt * 0.6, d * 0.4, 6), phys(S.accent, 0.3, 0.8)); cap.position.z = d * 0.35; cap.rotation.z = Math.PI / 6; lift.add(cap); topY = hgt * 0.6;
+  } else { // petal
+    shell = new THREE.Mesh(new RoundedBoxGeometry(w * 0.9, hgt * 0.9, d, 5, 0.16), matPod); lift.add(shell);
+    const petals = big ? 6 : 5;
+    for (let i = 0; i < petals; i++) { const a = i / petals * Math.PI * 2; const pe = new THREE.Mesh(new THREE.SphereGeometry(hgt * 0.28, 16, 12), phys(S.accent, 0.45, 0.1)); pe.position.set(Math.cos(a) * hgt * 0.46, Math.sin(a) * hgt * 0.46, d * 0.18); pe.scale.set(1, 1, 0.5); lift.add(pe); }
+    topY = hgt * 0.45;
+  }
+  shell.castShadow = shell.receiveShadow = true;
+
+  // 镜头/探头
+  if (form !== 'classic') {
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(big ? 0.15 : 0.10, big ? 0.15 : 0.10, 0.05, 28), phys(sensor.color, 0.15, 0.3, 1));
+    lens.material.emissive = new THREE.Color(sensor.color); lens.material.emissiveIntensity = 0.5;
+    lens.rotation.x = Math.PI / 2; lens.position.z = d / 2 + 0.02; if (big) lens.position.x = -w * 0.22; lift.add(lens);
+  }
+  // 呼吸 LED
+  led = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 16), new THREE.MeshBasicMaterial({ color: sensor.color }));
+  led.position.set(big ? w * 0.3 : 0, big ? 0 : topY * 0.55, d / 2 + 0.02); led.userData.baseColor = new THREE.Color(sensor.color); lift.add(led);
+  // 充电触点
+  if (big) { for (let i = 0; i < 2; i++) { const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.04, 12), matBuckle); pin.rotation.x = Math.PI / 2; pin.position.set(w * 0.22 + (i ? 0.08 : -0.08), -hgt * 0.28, d / 2 + 0.005); lift.add(pin); } }
+  // GPS 天线
+  if (sensor.id === 'gps') { const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.04, 0.16, 12), matBuckle); ant.position.set(w * 0.32, 0, d / 2 + 0.08); ant.rotation.x = Math.PI / 2; lift.add(ant); }
+
+  // ====== 内部精密结构（爆炸视图升起后露出） ======
+  const back = -d / 2;
+  const well = new THREE.Mesh(new RoundedBoxGeometry(w * 0.82, hgt * 0.82, 0.03, 3, 0.02), matInterior); well.position.z = back + 0.05; mount.add(well);
+  const pcb = new THREE.Mesh(new RoundedBoxGeometry(w * 0.72, hgt * 0.72, 0.022, 3, 0.01), matPCB); pcb.position.z = back + 0.08; mount.add(pcb);
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { const pad = new THREE.Mesh(new THREE.CircleGeometry(0.018, 16), matGold); pad.position.set(-w * 0.28 + i * w * 0.28, -hgt * 0.25 + j * hgt * 0.5, back + 0.1); mount.add(pad); }
+  const chip = new THREE.Mesh(new RoundedBoxGeometry(w * 0.32, hgt * 0.32, 0.05, 3, 0.02), matGlow); chip.position.set(0, 0, back + 0.1); mount.add(chip);
+
+  lift.userData = { explodeZ: big ? 0.95 : 0.55 };
+  moduleRoot.rotation.x = -0.35; moduleRoot.rotation.y = -0.4;
+  scene.add(moduleRoot);
+}
+
+/* ---- 填充右侧信息 ---- */
+function fillInfo() {
+  document.getElementById('mk').textContent = sensor.sub;
+  document.getElementById('mn').textContent = sensor.name;
+  document.getElementById('ms').textContent = '· ' + sensor.sub;
+  document.getElementById('specs').innerHTML = sensor.specs.map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  const p = document.getElementById('principle');
+  p.innerHTML = sensor.principle ? sensor.principle : '<span class="ph">设计原理文案将在下一阶段（Step ④）填入。</span>';
+  const b = document.getElementById('blueprint');
+  b.innerHTML = sensor.blueprint ? sensor.blueprint : '<div class="ph">设计图纸（SVG 工程示意图）将在下一阶段（Step ④）绘制。</div>';
+}
+
+/* ---- 爆炸图 / 返回 ---- */
+document.getElementById('explode').onchange = (e) => { local.explode = e.target.checked; };
+document.getElementById('back').onclick = () => { if (window.opener) { window.close(); } else { location.href = '../pet-collar-3d.html'; } };
+
+/* ---- 渲染循环 ---- */
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  if (lift) {
+    const target = local.explode ? 1 : 0;
+    explodeF += (target - explodeF) * 0.12;
+    lift.position.z = lift.userData.explodeZ * explodeF;
+  }
+  if (led) {
+    const ph = Math.sin(t * 2.4) * 0.5 + 0.5;
+    led.material.color.copy(led.userData.baseColor).multiplyScalar(0.45 + ph * 0.85);
+    led.scale.setScalar(0.85 + ph * 0.5);
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+function onResize() { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); }
+
+init();
+</script>
+</body>
+</html>

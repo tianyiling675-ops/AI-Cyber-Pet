@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>内部结构 · 一体式硬项圈</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-0:#0a0c10; --ink:#e8edf4; --ink-dim:#8b97a8;
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --accent:#7cf5c4; --accent-2:#46d3ff;
+  --panel:rgba(18,22,30,.72);
+}
+html,body{height:100%;background:var(--bg-0);color:var(--ink);
+  font-family:'Sora',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+.glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(60% 50% at 70% 30%,rgba(70,211,255,.10),transparent 70%),
+             radial-gradient(50% 55% at 25% 75%,rgba(124,245,196,.09),transparent 70%);
+  mix-blend-mode:screen}
+#stage{position:fixed;inset:0;z-index:1}
+canvas{display:block}
+
+.topbar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:16px;
+  padding:18px 26px;background:linear-gradient(180deg,rgba(10,12,16,.88),transparent)}
+.back{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;
+  letter-spacing:.06em;background:rgba(18,22,30,.8);border:1px solid var(--line-2);
+  padding:10px 16px;border-radius:30px;cursor:pointer;backdrop-filter:blur(12px);transition:all .2s;white-space:nowrap}
+.back::before{content:'←';font-size:14px}
+.back:hover{border-color:var(--accent);background:rgba(124,245,196,.12)}
+.tname{flex:1;min-width:0}
+.tname .k{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
+.tname h1{font-family:'Noto Serif SC',serif;font-weight:900;font-size:25px;line-height:1.15;margin-top:2px}
+.tname h1 i{font-style:normal;font-weight:300;font-size:11px;letter-spacing:.18em;color:var(--ink-dim);margin-left:10px}
+.ctrl{display:flex;align-items:center;gap:9px}
+.ctrl select{font-size:12px;color:var(--ink);background:rgba(18,22,30,.8);
+  border:1px solid var(--line-2);padding:9px 12px;border-radius:10px;cursor:pointer;backdrop-filter:blur(12px);outline:none}
+.ctrl select:hover{border-color:var(--accent)}
+.ctrl select option{background:#11151c}
+.chk{display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;user-select:none;
+  background:rgba(18,22,30,.8);border:1px solid var(--line-2);padding:9px 13px;border-radius:10px;backdrop-filter:blur(12px);white-space:nowrap}
+.chk input{accent-color:var(--accent);cursor:pointer}
+
+.side{position:fixed;top:88px;right:22px;bottom:22px;left:auto;width:352px;z-index:15;
+  display:flex;flex-direction:column;gap:12px;overflow:auto;padding-right:4px}
+.side::-webkit-scrollbar{width:6px}
+.side::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+.card{background:var(--panel);backdrop-filter:blur(22px) saturate(140%);border:1px solid var(--line);
+  border-radius:14px;padding:14px 15px 13px;box-shadow:0 20px 50px rgba(0,0,0,.4);overflow:visible}
+.card h3{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim);font-weight:600;margin-bottom:11px}
+.layers{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.layer{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;font-weight:600;cursor:pointer;
+  background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:10px;padding:6px 9px;transition:all .2s}
+.layer:hover{border-color:var(--line-2)}
+.layer.on{border-color:var(--accent);background:rgba(124,245,196,.10);color:var(--accent)}
+.layer i{font-style:normal;font-size:10px;color:var(--ink-dim);font-weight:400}
+.parts{display:flex;flex-wrap:wrap;gap:7px}
+.part{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;cursor:pointer;
+  background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:30px;padding:7px 13px 7px 8px;transition:all .2s}
+.part:hover{border-color:var(--line-2)}
+.part.on{border-color:var(--c);background:rgba(124,245,196,.07)}
+.part .dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px var(--c)}
+.specs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.specs div{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:11px;padding:9px 11px}
+.specs b{font-weight:700;font-size:15px;display:block;color:var(--c,var(--accent))}
+.specs span{font-size:10px;letter-spacing:.06em;color:var(--ink-dim)}
+.principle{font-size:13px;line-height:1.65;color:var(--ink);opacity:.86}
+.blueprint svg{display:block;max-width:300px;width:100%}
+.blueprint .ph{font-size:12px;line-height:1.7;color:var(--ink-dim)}
+.part-title{font-family:'Noto Serif SC',serif;font-weight:900;font-size:20px;margin-bottom:6px}
+.part-sub{font-size:11px;color:var(--ink-dim);letter-spacing:.06em;margin-bottom:14px}
+.hint{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:15;
+  font-size:11px;letter-spacing:.18em;color:var(--ink-dim);text-transform:uppercase;opacity:.5;white-space:nowrap}
+.tag{font-family:'Sora';pointer-events:none;white-space:nowrap;transform:translate(-50%,-50%)}
+.tag .pin{pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:7px;
+  background:rgba(10,12,16,.82);backdrop-filter:blur(8px);
+  border:1px solid var(--line-2);border-radius:30px;padding:5px 11px 5px 6px;
+  box-shadow:0 6px 22px rgba(0,0,0,.5);transition:all .2s}
+.tag .pin:hover{border-color:var(--c)}
+.tag.sel .pin{border-color:var(--c);background:rgba(124,245,196,.12);box-shadow:0 0 22px rgba(124,245,196,.25)}
+.tag .ic{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tag .ic svg{width:11px;height:11px;stroke:#0a0c10;fill:none;stroke-width:2.2}
+.tag b{font-size:11.5px;font-weight:600;letter-spacing:.02em}
+.tag i{font-style:normal;font-size:10px;color:var(--ink-dim);margin-left:5px}
+@media(max-width:920px){
+  .side{top:auto;left:14px;right:14px;bottom:14px;width:auto;max-height:48%;overflow:auto}
+  .card{overflow:visible}
+  .tname h1{font-size:19px}.ctrl select{padding:8px 10px}
+}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div id="stage"></div>
+
+<div class="topbar">
+  <button class="back" id="back">返回全景</button>
+  <div class="tname">
+    <div class="k">Internal Structure</div>
+    <h1><span>内部结构</span><i>环形骨架 · 环形电路 · 分层拆解</i></h1>
+  </div>
+  <div class="ctrl">
+    <select id="styleSel"></select>
+    <label class="chk"><input type="checkbox" id="explode"> 剖开</label>
+    <label class="chk"><input type="checkbox" id="spin" checked> 自动旋转</label>
+  </div>
+</div>
+
+<aside class="side">
+  <div class="card">
+    <h3>分层查看</h3>
+    <div class="layers" id="layers"></div>
+  </div>
+  <div class="card">
+    <h3>功能部件</h3>
+    <div class="parts" id="parts"></div>
+  </div>
+  <div class="card" id="detailCard">
+    <div class="part-title" id="pName"></div>
+    <div class="part-sub" id="pSub"></div>
+    <h3 style="margin-top:4px">技术参数</h3>
+    <div class="specs" id="specs"></div>
+  </div>
+  <div class="card"><h3>设计原理</h3><div class="principle" id="principle"></div></div>
+  <div class="card"><h3>设计图纸</h3><div class="blueprint" id="blueprint"></div></div>
+</aside>
+
+<div class="hint">分层查看包胶 / 骨架 / C 型开合 / 全体型适配 / FPC / 芯片电池 / 贴肤传感</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "../vendor/three/build/three.module.js",
+  "three/addons/": "../vendor/three/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { STYLES, ICON, SENSORS, REF_R } from './data.js';
+
+const Q = new URLSearchParams(location.search);
+let sync = {
+  style: Q.get('style') || 'sport',
+  size: +(Q.get('size') || 56),
+  tubeScale: +(Q.get('tubeScale') || 0.60),
+};
+let selected = 'pod';
+let local = { explode:false, spin:true };
+let layerMode = 'all';
+
+const ch = new BroadcastChannel('collar-sync');
+ch.onmessage = (e)=>{ const m=e.data; if(!m||m.type!=='state') return;
+  let changed=false;
+  ['style','size','tubeScale'].forEach(k=>{ if(m.state[k]!==undefined && m.state[k]!==sync[k]){ sync[k]=m.state[k]; changed=true; } });
+  if(changed){ syncStyleSel(); rebuild(); }
+};
+
+let scene, camera, renderer, labelRenderer, controls, clock = new THREE.Clock();
+let root, layerRoots = {}, lifts = [], labels = [], explodeF = 0;
+let autoSpinSpeed = 0;
+const PART_ANGLE = {
+  pod: Math.PI / 2,
+  gps: Math.PI / 2 + 0.58,
+  motion: Math.PI / 2 - 0.58,
+  heart: -Math.PI / 2 - 1.08,
+  temp: -Math.PI / 2 + 1.08,
+};
+const LAYERS = [
+  {id:'all', name:'全部', sub:'完整结构'},
+  {id:'outer', name:'外层', sub:'亲肤包胶'},
+  {id:'structure', name:'结构层', sub:'环形骨架'},
+  {id:'wear', name:'开合层', sub:'C 型安全'},
+  {id:'adjust', name:'适配层', sub:'伸缩叠带'},
+  {id:'fpc', name:'排线层', sub:'FPC/天线'},
+  {id:'electronics', name:'芯片层', sub:'SoC/电池'},
+  {id:'sensors', name:'传感层', sub:'贴肤窗口'},
+];
+const LAYER_DETAIL = {
+  outer: {
+    name:'外层亲肤包胶', sub:'液态硅胶 / TPE / 净面外饰',
+    specs:[['材料','LSR+TPE'],['工艺','二次包胶'],['表面','无外挂模块'],['防水','IP68']],
+    principle:'外层采用连续包胶圆环，触控键和磁吸充电口布置在外侧上半区，贴肤传感窗布置在内侧左右弧段，操作面和贴肤面分离。其余结构全部被包覆在环体内部，减少抓挠、啃咬和积污。',
+    note:'外观看到的是干净圆环；真正的功能层藏在包胶下面。'
+  },
+  structure: {
+    name:'环形承力结构层', sub:'PC+ABS 骨架 / 防咬纤维带',
+    specs:[['骨架','PC+ABS'],['增强','芳纶纤维'],['密封','连续胶圈'],['目标','≤60g']],
+    principle:'结构层不再做外凸盒体，而是在圆环截面内形成一条闭合承力骨架。骨架承担抗弯、抗压、防咬和密封定位，给芯片、电池与传感窗口留出稳定腔体。',
+    note:'强度来自环体内部的骨架，而不是外面加一块保护壳。'
+  },
+  wear: {
+    name:'C 型安全开合层', sub:'底部分型缝 / 磁吸安全释放',
+    specs:[['开合','C 型张开'],['释放','磁吸脱扣'],['安全','猫用 breakaway'],['外观','闭合后净面']],
+    principle:'保留 C 型安全开合，用来解决“怎么戴上”和“被挂住时怎么脱困”。底部隐藏分型缝可张开绕过脖颈，闭合后磁吸安全扣回位，外侧仍保持简洁圆环。',
+    note:'这层负责佩戴和猫用安全脱扣。'
+  },
+  adjust: {
+    name:'全体型适配层', sub:'连续柔性伸缩叠带 / 可更换长度带',
+    specs:[['适配','16–60cm'],['结构','伸缩叠带'],['定位','内置微齿'],['维护','可换长度带']],
+    principle:'新增连续柔性可调叠带，负责从猫、小型犬到大型犬的长度适配。电子与电池仍沿圆环硬质弧段内部集成，柔性带在内侧重叠收纳，多余长度不外挂。',
+    note:'这层负责不同体型，不取代 C 型安全开合。'
+  },
+  fpc: {
+    name:'环形 FPC 与天线层', sub:'柔性排线 / BLE-GNSS 天线',
+    specs:[['天线','BLE/GNSS'],['通信','BLE 5.3'],['走线','环形 FPC'],['连接','低应力焊盘']],
+    principle:'FPC 沿圆环内侧连续铺开，把 SoC、PMIC、电池保护、传感窗口和天线连接成一个环形电路。天线放在上侧外缘的内部净空区，避开皮肤和地面遮挡。',
+    note:'这层重点是弯折寿命、天线净空、低应力焊盘和防水封装。'
+  },
+  electronics: {
+    name:'芯片与电池层', sub:'SoC / PMIC / 弧形电池',
+    specs:[['MCU','nRF5340'],['电池','300mAh'],['续航','7–14 天'],['充电','4pin 磁吸']],
+    principle:'主控、存储、电源管理和电池不做块状外挂，而是围绕圆环曲率分布。弧形软包电池贴合环体，SoC 和 PMIC 放在上侧低受力区，充电触点通过密封焊盘接入电源路径。',
+    note:'芯片和电池是“沿环展开”的，不是外面贴一个盒子。'
+  },
+  sensors: {
+    name:'贴肤传感层', sub:'内侧对称齐平窗口',
+    specs:[['心率','内侧左 PPG'],['体温','内侧右红外'],['压力','5–15 g/mm²'],['避让','外侧按钮区']],
+    principle:'PPG 和温度传感器嵌入圆环内侧贴肤弧段，以底部 C 型扣中线为对称轴左右分布；外侧开关按钮区域不再布置传感窗口。表面只留下齐平的位置图案，通过微纹理导毛和压力区控制贴合。',
+    note:'传感器在圆环内部，外观只显示位置图案；手按的按钮在外侧，只作为触控图案显示。'
+  }
+};
+
+function init(){
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0c10);
+  scene.fog = new THREE.Fog(0x0a0c10, 12, 28);
+  camera = new THREE.PerspectiveCamera(38, innerWidth/innerHeight, 0.1, 100);
+  camera.position.set(0, 1.25, 7.0);
+  renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.getElementById('stage').appendChild(renderer.domElement);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+  labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(innerWidth, innerHeight);
+  labelRenderer.domElement.style.cssText = 'position:fixed;inset:0;z-index:15;pointer-events:none';
+  document.body.appendChild(labelRenderer.domElement);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.target.set(0,0.45,0); controls.minDistance = 3; controls.maxDistance = 14;
+
+  const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(4,7,5); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048); key.shadow.camera.left=-5; key.shadow.camera.right=5;
+  key.shadow.camera.top=5; key.shadow.camera.bottom=-5; key.shadow.bias=-0.0004; scene.add(key);
+  const rim = new THREE.DirectionalLight(0x46d3ff, 1.3); rim.position.set(-5,3,-4); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x7cf5c4, 0.5); fill.position.set(-2,-2,3); scene.add(fill);
+  scene.add(new THREE.AmbientLight(0x404858, 0.6));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(10, 80),
+    new THREE.MeshStandardMaterial({color:0x0c0e13, roughness:0.55, metalness:0.4}));
+  ground.rotation.x = -Math.PI/2; ground.position.y = -2.2; ground.receiveShadow = true; scene.add(ground);
+
+  buildStyleSel();
+  buildLayers();
+  buildParts();
+  rebuild();
+  selectPart(selected);
+  addEventListener('resize', onResize);
+  animate();
+}
+
+function buildStyleSel(){
+  const sel = document.getElementById('styleSel');
+  for(const [k,S] of Object.entries(STYLES)){
+    const o = document.createElement('option'); o.value=k; o.textContent=S.name;
+    if(k===sync.style) o.selected=true; sel.appendChild(o);
+  }
+  sel.onchange = ()=>{ sync.style=sel.value; rebuild(); };
+}
+function syncStyleSel(){ const s=document.getElementById('styleSel'); if(s) s.value=sync.style; }
+
+function placeOnRing(obj, angle, radius, z = 0){
+  obj.position.set(Math.cos(angle)*radius, Math.sin(angle)*radius, z);
+  obj.rotation.z = angle - Math.PI/2;
+  return obj;
+}
+function flatArc(radius, width, z, start, length, mat, segments = 96){
+  const mesh = new THREE.Mesh(new THREE.RingGeometry(radius-width, radius+width, 10, segments, start, length), mat);
+  mesh.position.z = z;
+  return mesh;
+}
+function roundedPart(w, h, d, mat, radius = 0.04){
+  return new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 4, Math.min(radius, w*0.18, h*0.18, d*0.45)), mat);
+}
+function tubeArc(radius, tubeRadius, center, length, mat, radial = 36, tubular = 140){
+  const mesh = new THREE.Mesh(new THREE.TorusGeometry(radius, tubeRadius, radial, tubular, length), mat);
+  mesh.rotation.z = center - length/2;
+  return mesh;
+}
+
+function buildLayers(){
+  const wrap = document.getElementById('layers');
+  LAYERS.forEach(l=>{
+    const d = document.createElement('div');
+    d.className = 'layer' + (l.id === layerMode ? ' on' : '');
+    d.dataset.id = l.id;
+    d.innerHTML = `<span>${l.name}</span><i>${l.sub}</i>`;
+    d.onclick = ()=>{ layerMode = l.id; updateLayerUI(); applyLayerMode(); showLayerInfo(l.id); };
+    wrap.appendChild(d);
+  });
+}
+function updateLayerUI(){
+  document.querySelectorAll('.layer').forEach(l=>l.classList.toggle('on', l.dataset.id === layerMode));
+}
+function applyLayerMode(){
+  for(const [id,g] of Object.entries(layerRoots)){
+    g.visible = layerMode === 'all' || layerMode === id;
+  }
+  labels.forEach(l=>{
+    const id = l.userData.layer;
+    l.visible = layerMode === 'all' || layerMode === id;
+  });
+}
+function showLayerInfo(id){
+  if(id === 'all'){ selectPart(selected); return; }
+  const info = LAYER_DETAIL[id]; if(!info) return;
+  document.getElementById('detailCard').style.setProperty('--c', 'var(--accent)');
+  document.getElementById('pName').textContent = info.name;
+  document.getElementById('pSub').textContent = info.sub;
+  const sp = document.getElementById('specs');
+  sp.style.setProperty('--c', 'var(--accent)');
+  sp.innerHTML = info.specs.map(([k,v])=>`<div><b>${v}</b><span>${k}</span></div>`).join('');
+  document.getElementById('principle').textContent = info.principle;
+  document.getElementById('blueprint').innerHTML = `<div class="ph">${info.note}</div>`;
+}
+
+function buildParts(){
+  const wrap = document.getElementById('parts');
+  SENSORS.forEach(s=>{
+    const hex = '#'+new THREE.Color(s.color).getHexString();
+    const d = document.createElement('div');
+    d.className='part'+(s.id===selected?' on':''); d.dataset.id=s.id;
+    d.style.setProperty('--c', hex);
+    d.innerHTML = `<span class="dot" style="background:${hex}"></span>${s.name}`;
+    d.onclick = ()=> selectPart(s.id);
+    wrap.appendChild(d);
+  });
+}
+function selectPart(id){
+  if(layerMode !== 'all'){
+    layerMode = 'all';
+    updateLayerUI();
+    applyLayerMode();
+  }
+  selected = id;
+  const s = SENSORS.find(x=>x.id===id) || SENSORS[0];
+  const hex = '#'+new THREE.Color(s.color).getHexString();
+  document.querySelectorAll('.part').forEach(p=>p.classList.toggle('on', p.dataset.id===id));
+  document.getElementById('detailCard').style.setProperty('--c', hex);
+  document.getElementById('pName').textContent = s.name;
+  document.getElementById('pSub').textContent = s.sub;
+  const sp = document.getElementById('specs'); sp.style.setProperty('--c', hex);
+  sp.innerHTML = s.specs.map(([k,v])=>`<div><b>${v}</b><span>${k}</span></div>`).join('');
+  document.getElementById('principle').innerHTML = s.principle || '';
+  document.getElementById('blueprint').innerHTML = s.blueprint || '';
+  // 高亮选中部件的标签
+  labels.forEach(l=> l.element.classList.toggle('sel', l.userData.id===id));
+}
+
+/* ---------- 构建：半透明环 + 5 个环内部件 ---------- */
+function rebuildLegacy(){
+  if(root){ scene.remove(root); dispose(root); }
+  if(labelRenderer) labelRenderer.domElement.replaceChildren();
+  lifts = []; labels = [];
+  root = new THREE.Group();
+  layerRoots = {};
+  ['outer','structure','fpc','electronics','sensors','mechanics'].forEach(id=>{
+    layerRoots[id] = new THREE.Group();
+    root.add(layerRoots[id]);
+  });
+  const addLayer = (id, obj)=>{ layerRoots[id].add(obj); return obj; };
+  const S = STYLES[sync.style];
+  const R = REF_R;
+  const tube = S.tube * sync.tubeScale;
+  const zFace = tube * S.bandFlat;
+  const hardCenter = Math.PI / 2;
+  const hardLen = Math.PI * 0.96;
+  const strapLen = Math.PI * 0.55;
+  const leftStrapCenter = -Math.PI / 2 - 0.73;
+  const rightStrapCenter = -Math.PI / 2 + 0.73;
+  const matFpc = new THREE.MeshStandardMaterial({ color:0x0c442e, roughness:0.55, metalness:0.18 });
+  const matCopper = new THREE.MeshStandardMaterial({ color:0xb88938, roughness:0.32, metalness:0.9 });
+  const matGasket = new THREE.MeshStandardMaterial({ color:0x030506, roughness:0.92, metalness:0 });
+  const matKevlar = new THREE.MeshStandardMaterial({ color:0x111820, roughness:0.76, metalness:0.08 });
+  const matWear = new THREE.MeshPhysicalMaterial({ color:S.fabric ? S.band : 0x242b34, roughness:S.fabric ? 0.86 : 0.72, metalness:0.04, clearcoat:0.1, clearcoatRoughness:0.55 });
+
+  // 外层：硬质上半保护梁 + 柔性下半穿戴带
+  const matShell = new THREE.MeshPhysicalMaterial({ color:S.band, roughness:0.12, metalness:0,
+    transmission:0.75, transparent:true, opacity:0.26, thickness:0.6, ior:1.42, envMapIntensity:1.6, side:THREE.DoubleSide });
+  const shell = tubeArc(R, tube, hardCenter, hardLen, matShell, 40, 220);
+  shell.scale.set(1,1,S.bandFlat);
+  shell.castShadow = shell.receiveShadow = true;
+  addLayer('outer', shell);
+  for(const center of [leftStrapCenter, rightStrapCenter]){
+    const strap = tubeArc(R, tube*0.72, center, strapLen, matWear, 32, 120);
+    strap.scale.set(1,1,S.bandFlat*0.62);
+    strap.castShadow = strap.receiveShadow = true;
+    addLayer('outer', strap);
+  }
+  // 结构层：内衬、防咬层和密封线
+  const matInner = new THREE.MeshStandardMaterial({ color:0x05070a, roughness:0.9, metalness:0, transparent:true, opacity:0.25, side:THREE.BackSide });
+  const inner = tubeArc(R, tube*0.78, hardCenter, hardLen, matInner, 32, 180);
+  inner.scale.set(1,1,S.bandFlat*0.80); addLayer('structure', inner);
+  addLayer('structure', flatArc(R+tube*0.80, tube*0.016, zFace+0.010, hardCenter-hardLen/2, hardLen, matGasket, 140));
+  addLayer('structure', flatArc(R-tube*0.80, tube*0.016, zFace+0.010, hardCenter-hardLen/2, hardLen, matGasket, 140));
+  for(const center of [leftStrapCenter, rightStrapCenter]){
+    addLayer('structure', flatArc(R+tube*0.50, tube*0.012, -zFace, center-strapLen/2, strapLen, matKevlar, 80));
+    addLayer('structure', flatArc(R-tube*0.50, tube*0.012, -zFace, center-strapLen/2, strapLen, matKevlar, 80));
+  }
+  // FPC 柔性排线和天线
+  addLayer('fpc', flatArc(R-tube*0.35, tube*0.025, zFace+0.026, hardCenter-hardLen*0.45, hardLen*0.9, matFpc, 140));
+  addLayer('fpc', flatArc(R+tube*0.62, tube*0.022, zFace+0.060, Math.PI/2-0.48, 0.96, matCopper, 72));
+  for(let i=0;i<22;i++){
+    const a = hardCenter-hardLen*0.40 + i*(hardLen*0.80/21);
+    const via = new THREE.Mesh(new THREE.CylinderGeometry(tube*0.018, tube*0.018, tube*0.010, 10), matCopper);
+    via.rotation.x = Math.PI/2;
+    via.position.set(Math.cos(a)*(R-tube*0.35), Math.sin(a)*(R-tube*0.35), zFace+0.038);
+    addLayer('fpc', via);
+  }
+  // 外侧 accent 嵌线
+  const inlayR = Math.max(tube*0.05, 0.012);
+  const inlay = tubeArc(R+tube-inlayR, inlayR, hardCenter, hardLen*0.86,
+    new THREE.MeshStandardMaterial({color:S.accent, roughness:0.3, metalness:0.6, emissive:S.accent, emissiveIntensity:0.25}), 12, 180);
+  inlay.scale.set(1,1,S.bandFlat); addLayer('outer', inlay);
+
+  // 5 个功能件按真实硬件位置布置，而不是均匀摆样品
+  SENSORS.forEach((s, i)=>{
+    const ang = PART_ANGLE[s.id] ?? (-Math.PI/2 + i*(Math.PI*2/SENSORS.length));
+    const node = makeInternalPart(s, ang, R, tube, S);
+    node.group.userData.id = s.id;
+    node.lift.userData.explodeZ = tube*1.6 + 0.3;
+    const layer = (s.id === 'heart' || s.id === 'temp') ? 'sensors' : 'electronics';
+    addLayer(layer, node.group);
+    lifts.push(node.lift);
+    // 标签
+    const el = document.createElement('div'); el.className='tag'; el.userData={};
+    const hex = '#'+new THREE.Color(s.color).getHexString();
+    el.innerHTML = `<div class="pin" style="--c:${hex}">
+      <span class="ic" style="background:${hex}"><svg viewBox="0 0 24 24">${ICON[s.icon]}</svg></span>
+      <b>${s.name}</b><i>${s.sub}</i></div>`;
+    el.style.cursor='pointer';
+    el.addEventListener('click', ()=> selectPart(s.id));
+    const obj = new CSS2DObject(el);
+    const nx = Math.cos(ang)*(R+tube+0.5), ny = Math.sin(ang)*(R+tube+0.5);
+    obj.position.set(nx, ny, 0.1);
+    obj.userData.id = s.id;
+    obj.userData.layer = layer;
+    root.add(obj); labels.push(obj);
+  });
+
+  const mech = makeClosureCartridge(R, tube, S);
+  addLayer('mechanics', mech);
+
+  root.rotation.x = -0.5;
+  root.position.y = 0.46;
+  scene.add(root);
+  applyLayerMode();
+}
+
+/* ---------- 构建：圆环内集成分层结构 ---------- */
+function rebuild(){
+  if(root){ scene.remove(root); dispose(root); }
+  if(labelRenderer) labelRenderer.domElement.replaceChildren();
+  lifts = []; labels = [];
+  root = new THREE.Group();
+  layerRoots = {};
+  ['outer','structure','wear','adjust','fpc','electronics','sensors'].forEach(id=>{
+    layerRoots[id] = new THREE.Group();
+    root.add(layerRoots[id]);
+  });
+  const addLayer = (id, obj)=>{ layerRoots[id].add(obj); return obj; };
+  const S = STYLES[sync.style];
+  const R = REF_R;
+  const tube = S.tube * sync.tubeScale;
+  const zFace = tube * S.bandFlat;
+  const openCenter = -Math.PI / 2;
+  const openGap = 1.46;
+  const bodyLen = Math.PI * 2 - openGap;
+  const bodyCenter = Math.PI / 2;
+
+  const matShell = new THREE.MeshPhysicalMaterial({
+    color:S.band,
+    roughness:S.fabric ? 0.72 : 0.18,
+    metalness:S.fabric ? 0.02 : Math.min(S.bandMetal, 0.25),
+    transparent:true,
+    opacity:0.28,
+    transmission:0.45,
+    thickness:0.45,
+    clearcoat:0.6,
+    clearcoatRoughness:0.18,
+    envMapIntensity:1.5,
+    side:THREE.DoubleSide
+  });
+  const matSkin = new THREE.MeshPhysicalMaterial({ color:0x0a0d10, roughness:0.5, metalness:0.04, transparent:true, opacity:0.42, clearcoat:0.35 });
+  const matStructure = new THREE.MeshStandardMaterial({ color:0x101820, roughness:0.76, metalness:0.18, transparent:true, opacity:0.56 });
+  const matFiber = new THREE.MeshStandardMaterial({ color:0x07090c, roughness:0.9, metalness:0.02 });
+  const matFpc = new THREE.MeshStandardMaterial({ color:0x0b3f2d, roughness:0.52, metalness:0.18 });
+  const matCopper = new THREE.MeshStandardMaterial({ color:0xb88938, roughness:0.30, metalness:0.88 });
+  const matBattery = new THREE.MeshPhysicalMaterial({ color:0x27313a, roughness:0.36, metalness:0.18, clearcoat:0.35 });
+  const matSeal = new THREE.MeshStandardMaterial({ color:0x030507, roughness:0.9, metalness:0.0 });
+
+  const shell = tubeArc(R, tube, bodyCenter, bodyLen, matShell, 72, 280);
+  shell.scale.set(1, 1, S.bandFlat);
+  shell.castShadow = shell.receiveShadow = true;
+  addLayer('outer', shell);
+
+  const skin = tubeArc(R, tube * 0.62, bodyCenter, bodyLen, matSkin, 48, 240);
+  skin.scale.set(1, 1, S.bandFlat * 0.74);
+  skin.castShadow = skin.receiveShadow = true;
+  addLayer('outer', skin);
+  addLayer('outer', makeExternalControls(R, tube, S));
+
+  const skeleton = tubeArc(R, tube * 0.70, bodyCenter, bodyLen, matStructure, 44, 240);
+  skeleton.scale.set(1, 1, S.bandFlat * 0.58);
+  skeleton.castShadow = skeleton.receiveShadow = true;
+  addLayer('structure', skeleton);
+  addLayer('structure', flatArc(R + tube * 0.72, tube * 0.018, zFace + 0.010, openCenter + openGap / 2, bodyLen, matFiber, 220));
+  addLayer('structure', flatArc(R - tube * 0.72, tube * 0.018, zFace + 0.010, openCenter + openGap / 2, bodyLen, matFiber, 220));
+  for(let i=0;i<18;i++){
+    const a = i / 18 * Math.PI * 2;
+    const rib = roundedPart(tube * 0.050, tube * 0.34, tube * 0.038, matSeal, tube * 0.015);
+    placeOnRing(rib, a, R, zFace + 0.018);
+    addLayer('structure', rib);
+  }
+
+  addLayer('wear', makeInternalWearMechanism(R, tube, S, openCenter, openGap));
+  addLayer('adjust', makeInternalSizingBand(R, tube, S));
+
+  addLayer('fpc', flatArc(R - tube * 0.34, tube * 0.024, zFace + 0.034, openCenter + openGap / 2, bodyLen, matFpc, 240));
+  addLayer('fpc', flatArc(R - tube * 0.20, tube * 0.010, zFace + 0.044, openCenter + openGap / 2, bodyLen, matCopper, 240));
+  addLayer('fpc', flatArc(R + tube * 0.58, tube * 0.020, zFace + 0.052, Math.PI / 2 - 0.62, 1.24, matCopper, 90));
+  for(let i=0;i<30;i++){
+    const a = i / 30 * Math.PI * 2;
+    const via = new THREE.Mesh(new THREE.CylinderGeometry(tube * 0.014, tube * 0.014, 0.010, 10), matCopper);
+    via.rotation.x = Math.PI / 2;
+    via.position.set(Math.cos(a) * (R - tube * 0.34), Math.sin(a) * (R - tube * 0.34), zFace + 0.050);
+    addLayer('fpc', via);
+  }
+
+  const batteryA = tubeArc(R + tube * 0.04, tube * 0.085, Math.PI / 2, Math.PI * 0.92, matBattery, 18, 120);
+  batteryA.scale.set(1, 1, S.bandFlat * 0.32);
+  addLayer('electronics', batteryA);
+  const batteryB = tubeArc(R + tube * 0.04, tube * 0.060, Math.PI / 2 + Math.PI, Math.PI * 0.48, matBattery, 16, 80);
+  batteryB.scale.set(1, 1, S.bandFlat * 0.28);
+  addLayer('electronics', batteryB);
+
+  SENSORS.forEach((s, i)=>{
+    const ang = PART_ANGLE[s.id] ?? (-Math.PI/2 + i*(Math.PI*2/SENSORS.length));
+    const node = makeInternalPart(s, ang, R, tube, S);
+    node.group.userData.id = s.id;
+    node.lift.userData.explodeZ = tube * 1.2 + 0.22;
+    const layer = (s.id === 'heart' || s.id === 'temp') ? 'sensors' : (s.id === 'gps' ? 'fpc' : 'electronics');
+    addLayer(layer, node.group);
+    lifts.push(node.lift);
+
+    const el = document.createElement('div');
+    el.className='tag';
+    const hex = '#'+new THREE.Color(s.color).getHexString();
+    el.innerHTML = `<div class="pin" style="--c:${hex}">
+      <span class="ic" style="background:${hex}"><svg viewBox="0 0 24 24">${ICON[s.icon]}</svg></span>
+      <b>${s.name}</b><i>${s.sub}</i></div>`;
+    el.addEventListener('click', ()=> selectPart(s.id));
+    const obj = new CSS2DObject(el);
+    obj.position.set(Math.cos(ang)*(R+tube+0.46), Math.sin(ang)*(R+tube+0.46), 0.12);
+    obj.userData.id = s.id;
+    obj.userData.layer = layer;
+    root.add(obj);
+    labels.push(obj);
+  });
+
+  root.rotation.x = -0.5;
+  root.position.set(-0.36, 0.46, 0);
+  scene.add(root);
+  applyLayerMode();
+}
+
+function makeInternalWearMechanism(R, tube, S, center, gap){
+  const g = new THREE.Group();
+  const zFace = tube * S.bandFlat;
+  const matTongue = new THREE.MeshPhysicalMaterial({ color:0x0a0d10, roughness:0.58, metalness:0.04, clearcoat:0.18 });
+  const matSeal = new THREE.MeshStandardMaterial({ color:0x030507, roughness:0.9, metalness:0.0 });
+  const matMag = new THREE.MeshPhysicalMaterial({ color:0xd6dde2, roughness:0.26, metalness:0.9, clearcoat:0.35 });
+  const matTooth = new THREE.MeshStandardMaterial({ color:0x1a222a, roughness:0.82, metalness:0.08 });
+  const matFlex = new THREE.MeshStandardMaterial({ color:S.accent, roughness:0.38, metalness:0.35, emissive:S.accent, emissiveIntensity:0.18 });
+
+  const tongue = tubeArc(R - tube * 0.18, tube * 0.18, center, gap * 1.48, matTongue, 30, 60);
+  tongue.scale.set(1, 1, S.bandFlat * 0.46);
+  g.add(tongue);
+
+  const flexLoop = flatArc(R - tube * 0.34, tube * 0.014, zFace + 0.060, center - gap * 0.74, gap * 1.48, matFlex, 50);
+  g.add(flexLoop);
+
+  for(const side of [-1, 1]){
+    const a = center + side * gap / 2;
+    const seam = roundedPart(tube * 0.10, tube * 1.34, 0.042, matSeal, tube * 0.020);
+    placeOnRing(seam, a, R, zFace + 0.018);
+    g.add(seam);
+
+    const magnet = new THREE.Mesh(new THREE.CylinderGeometry(tube * 0.050, tube * 0.050, 0.026, 18), matMag);
+    magnet.rotation.x = Math.PI / 2;
+    magnet.position.set(Math.cos(a) * (R - tube * 0.34), Math.sin(a) * (R - tube * 0.34), zFace + 0.040);
+    g.add(magnet);
+  }
+
+  for(let i=-4;i<=4;i++){
+    const a = center + i * gap * 0.12;
+    const tooth = roundedPart(tube * 0.032, tube * 0.18, 0.020, matTooth, tube * 0.007);
+    placeOnRing(tooth, a, R - tube * 0.52, zFace + 0.048);
+    g.add(tooth);
+  }
+
+  g.traverse(o=>{ if(o.isMesh) o.castShadow = o.receiveShadow = true; });
+  return g;
+}
+
+function makeInternalSizingBand(R, tube, S){
+  const g = new THREE.Group();
+  const center = Math.PI / 2;
+  const span = 0.92;
+  const zFace = tube * S.bandFlat;
+  const matFlex = new THREE.MeshPhysicalMaterial({ color:0x0b1015, roughness:0.54, metalness:0.04, clearcoat:0.16 });
+  const matRail = new THREE.MeshStandardMaterial({ color:0x05070a, roughness:0.86, metalness:0.06 });
+  const matAcc = new THREE.MeshStandardMaterial({ color:S.accent, roughness:0.36, metalness:0.35, emissive:S.accent, emissiveIntensity:0.18 });
+  const matMetal = new THREE.MeshPhysicalMaterial({ color:0xd6dde2, roughness:0.26, metalness:0.88, clearcoat:0.35 });
+
+  const overlap = tubeArc(R - tube * 0.24, tube * 0.15, center, span, matFlex, 28, 100);
+  overlap.scale.set(1, 1, S.bandFlat * 0.40);
+  g.add(overlap);
+  g.add(flatArc(R - tube * 0.48, tube * 0.012, zFace * 0.20, center - span * 0.44, span * 0.88, matAcc, 80));
+
+  for(const side of [-1, 1]){
+    const a = center + side * span * 0.44;
+    const block = roundedPart(tube * 0.14, tube * 0.32, 0.030, matMetal, tube * 0.020);
+    placeOnRing(block, a, R - tube * 0.36, zFace * 0.22);
+    g.add(block);
+  }
+  for(let i=-6;i<=6;i++){
+    const a = center + i * span * 0.052;
+    const tooth = roundedPart(tube * 0.025, tube * 0.15, 0.014, matRail, tube * 0.006);
+    placeOnRing(tooth, a, R - tube * 0.54, zFace * 0.24);
+    g.add(tooth);
+  }
+  g.traverse(o=>{ if(o.isMesh) o.castShadow = o.receiveShadow = true; });
+  return g;
+}
+
+function makeExternalControls(R, tube, S){
+  const g = new THREE.Group();
+  const zFace = tube * S.bandFlat;
+  const ui = THREE.MathUtils.clamp(tube * 1.34, 0.22, 0.34);
+  const matRecess = new THREE.MeshStandardMaterial({ color:0x05070a, roughness:0.58, metalness:0.28 });
+  const matAcc = new THREE.MeshBasicMaterial({ color:S.accent, transparent:true, opacity:0.92, side:THREE.DoubleSide, depthWrite:false });
+  const matPin = new THREE.MeshStandardMaterial({ color:0xe8c87a, roughness:0.24, metalness:1.0 });
+  const buttonAngle = Math.PI / 2 - 0.78;
+  const chargeAngle = Math.PI / 2 + 0.78;
+
+  const btn = new THREE.Group();
+  const bx = Math.cos(buttonAngle) * R;
+  const by = Math.sin(buttonAngle) * R;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(ui * 0.26, ui * 0.30, 40), matAcc);
+  ring.position.set(bx, by, zFace + 0.003);
+  btn.add(ring);
+  g.add(btn);
+
+  const cx = Math.cos(chargeAngle) * R;
+  const cy = Math.sin(chargeAngle) * R;
+  const tx = -Math.sin(chargeAngle);
+  const ty = Math.cos(chargeAngle);
+  const charge = roundedPart(ui * 0.92, ui * 0.36, 0.003, matRecess, ui * 0.050);
+  charge.rotation.z = chargeAngle - Math.PI / 2;
+  charge.position.set(cx, cy, zFace + 0.002);
+  g.add(charge);
+  for(let i=-1.5;i<=1.5;i++){
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(ui * 0.026, ui * 0.026, 0.003, 14), matPin);
+    pin.rotation.x = Math.PI / 2;
+    pin.position.set(cx + i * ui * 0.16 * tx, cy + i * ui * 0.16 * ty, zFace + 0.005);
+    g.add(pin);
+  }
+
+  g.traverse(o=>{ if(o.isMesh) o.castShadow = o.receiveShadow = true; });
+  return g;
+}
+
+function makeClosureCartridge(R, tube, S){
+  const g = new THREE.Group();
+  const matTrack = new THREE.MeshStandardMaterial({ color:0x05070a, roughness:0.72, metalness:0.25 });
+  const matMetal = new THREE.MeshPhysicalMaterial({ color:S.buckle, roughness:0.28, metalness:0.92, clearcoat:0.5 });
+  const matAcc = new THREE.MeshStandardMaterial({ color:S.accent, roughness:0.3, metalness:0.5, emissive:S.accent, emissiveIntensity:0.25 });
+  const y = -R, z = tube*S.bandFlat + 0.055;
+  const base = roundedPart(tube*1.74, tube*0.58, tube*0.22, matTrack, tube*0.08);
+  base.position.set(0, y, z); g.add(base);
+  const bridge = roundedPart(tube*0.72, tube*0.74, tube*0.28, matAcc, tube*0.10);
+  bridge.position.set(0, y, z+0.08); g.add(bridge);
+  for(const sx of [-1,1]){
+    const tail = roundedPart(tube*1.18, tube*0.34, tube*0.080, matMetal, tube*0.035);
+    tail.position.set(sx*tube*0.66, y, z-0.025); g.add(tail);
+    const tab = roundedPart(tube*0.18, tube*0.44, tube*0.10, matTrack, tube*0.025);
+    tab.position.set(sx*tube*0.66, y + sx*tube*0.35, z+0.105); g.add(tab);
+  }
+  for(let i=-3;i<=3;i++){
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(tube*0.035, tube*0.035, 0.018, 14), matTrack);
+    hole.rotation.x = Math.PI/2;
+    hole.position.set(-tube*0.92+i*tube*0.14, y, z+0.010);
+    g.add(hole);
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(tube*0.050, tube*0.30, 0.020), matAcc);
+    tooth.position.set(tube*0.33+i*tube*0.09, y, z+0.016);
+    g.add(tooth);
+  }
+  const hinge = new THREE.Mesh(new THREE.CylinderGeometry(tube*0.095, tube*0.095, tube*1.55, 18), matMetal);
+  hinge.rotation.y = Math.PI/2;
+  hinge.position.set(0, y-tube*0.32, z+0.005);
+  g.add(hinge);
+  return g;
+}
+
+/* 单个环内部件（按实际功能差异建模，可向外炸开）*/
+function makeInternalPartLegacy(s, ang, R, tube, S){
+  const g = new THREE.Group();
+  const lift = new THREE.Group(); g.add(lift);
+  const matPCB = new THREE.MeshStandardMaterial({color:0x0b3a28, roughness:0.55, metalness:0.28});
+  const matGold = new THREE.MeshStandardMaterial({color:0xe8c87a, roughness:0.25, metalness:1.0});
+  const matBlack = new THREE.MeshStandardMaterial({color:0x050608, roughness:0.82, metalness:0.15});
+  const matSilver = new THREE.MeshPhysicalMaterial({color:0xcfd6d8, roughness:0.22, metalness:0.75, clearcoat:0.45});
+  const matGlow = new THREE.MeshStandardMaterial({color:s.color, roughness:0.35, metalness:0.25, emissive:s.color, emissiveIntensity:0.65});
+  const matGlass = new THREE.MeshPhysicalMaterial({color:0x071116, roughness:0.06, metalness:0.08, clearcoat:1, clearcoatRoughness:0.03});
+
+  if(s.id === 'pod'){
+    const tray = roundedPart(0.98, 0.48, 0.06, matBlack, 0.055); tray.position.z = 0.02; lift.add(tray);
+    const pcb = roundedPart(0.88, 0.38, 0.025, matPCB, 0.030); pcb.position.z = 0.07; lift.add(pcb);
+    const battery = roundedPart(0.30, 0.30, 0.12, matSilver, 0.050); battery.position.set(-0.27, 0, 0.14); lift.add(battery);
+    const mcu = roundedPart(0.22, 0.20, 0.055, matBlack, 0.020); mcu.position.set(0.11, 0.04, 0.13); lift.add(mcu);
+    const pmic = roundedPart(0.15, 0.12, 0.042, matGlow, 0.016); pmic.position.set(0.34, -0.10, 0.125); lift.add(pmic);
+    for(let i=-2;i<=2;i++){
+      const pad = new THREE.Mesh(new THREE.CircleGeometry(0.022, 16), matGold);
+      pad.position.set(-0.06+i*0.075, -0.18, 0.145);
+      lift.add(pad);
+    }
+  } else if(s.id === 'gps'){
+    const flex = roundedPart(0.76, 0.20, 0.025, matPCB, 0.025); flex.position.z = 0.05; lift.add(flex);
+    for(let i=0;i<4;i++){
+      const strip = roundedPart(0.58-i*0.08, 0.018, 0.018, matGold, 0.006);
+      strip.position.set(0, -0.065+i*0.043, 0.085);
+      lift.add(strip);
+    }
+    const lna = roundedPart(0.14, 0.12, 0.045, matBlack, 0.014); lna.position.set(0.31, 0.02, 0.095); lift.add(lna);
+  } else if(s.id === 'heart'){
+    const board = roundedPart(0.58, 0.30, 0.030, matPCB, 0.030); board.position.z = 0.045; lift.add(board);
+    for(const [x,col] of [[-0.16,0x39ff88],[0,0x39ff88],[0.16,0xff5b55]]){
+      const led = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.026,18), new THREE.MeshBasicMaterial({color:col}));
+      led.rotation.x = Math.PI/2; led.position.set(x, 0.03, 0.082); lift.add(led);
+    }
+    const glass = roundedPart(0.44, 0.11, 0.020, matGlass, 0.025); glass.position.set(0,-0.11,0.085); lift.add(glass);
+    for(let i=-3;i<=3;i++){
+      const comb = new THREE.Mesh(new THREE.BoxGeometry(0.022,0.22,0.016), matBlack);
+      comb.position.set(i*0.065, -0.23, 0.090); lift.add(comb);
+    }
+  } else if(s.id === 'temp'){
+    const board = roundedPart(0.46, 0.28, 0.030, matPCB, 0.026); board.position.z = 0.045; lift.add(board);
+    const can = new THREE.Mesh(new THREE.CylinderGeometry(0.095,0.095,0.045,26), matSilver);
+    can.rotation.x = Math.PI/2; can.position.z = 0.092; lift.add(can);
+    const aperture = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.050,20), matGlow);
+    aperture.rotation.x = Math.PI/2; aperture.position.z = 0.122; lift.add(aperture);
+  } else {
+    const board = roundedPart(0.48, 0.30, 0.030, matPCB, 0.026); board.position.z = 0.045; lift.add(board);
+    const imu = roundedPart(0.17, 0.17, 0.060, matBlack, 0.016); imu.position.z = 0.100; lift.add(imu);
+    const axisX = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.018,0.018), matGlow); axisX.position.z = 0.142; lift.add(axisX);
+    const axisY = new THREE.Mesh(new THREE.BoxGeometry(0.018,0.26,0.018), matGold); axisY.position.z = 0.145; lift.add(axisY);
+  }
+  lift.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+
+  placeOnRing(g, ang, s.id === 'heart' || s.id === 'temp' ? R - tube*0.60 : R, tube*S.bandFlat+0.030);
+  lift.userData = { baseZ:0, ang };
+  return { group:g, lift };
+}
+
+function makeInternalPart(s, ang, R, tube, S){
+  const g = new THREE.Group();
+  const lift = new THREE.Group();
+  g.add(lift);
+
+  const matPCB = new THREE.MeshStandardMaterial({ color:0x0b3a28, roughness:0.54, metalness:0.24 });
+  const matGold = new THREE.MeshStandardMaterial({ color:0xe8c87a, roughness:0.25, metalness:1.0 });
+  const matChip = new THREE.MeshStandardMaterial({ color:0x050608, roughness:0.78, metalness:0.18 });
+  const matGlass = new THREE.MeshPhysicalMaterial({ color:0x071116, roughness:0.06, metalness:0.08, clearcoat:1, clearcoatRoughness:0.03 });
+  const matSilver = new THREE.MeshPhysicalMaterial({ color:0xcfd6d8, roughness:0.22, metalness:0.72, clearcoat:0.35 });
+  const matGlow = new THREE.MeshStandardMaterial({ color:s.color, roughness:0.35, metalness:0.25, emissive:s.color, emissiveIntensity:0.45 });
+
+  const w = tube * 1.15;
+  const h = tube * 0.36;
+  const board = roundedPart(w, h, tube * 0.055, matPCB, tube * 0.035);
+  board.position.z = 0.020;
+
+  if(s.id === 'pod'){
+    lift.add(board);
+    const soc = roundedPart(tube * 0.28, tube * 0.24, tube * 0.075, matChip, tube * 0.018);
+    soc.position.set(-tube * 0.18, 0, tube * 0.075);
+    lift.add(soc);
+    const pmic = roundedPart(tube * 0.20, tube * 0.16, tube * 0.055, matGlow, tube * 0.014);
+    pmic.position.set(tube * 0.22, tube * 0.04, tube * 0.070);
+    lift.add(pmic);
+    for(let i=-3;i<=3;i++){
+      const pad = new THREE.Mesh(new THREE.CircleGeometry(tube * 0.020, 14), matGold);
+      pad.position.set(i * tube * 0.075, -tube * 0.135, tube * 0.100);
+      lift.add(pad);
+    }
+  } else if(s.id === 'gps'){
+    const flex = roundedPart(w * 1.05, h * 0.70, tube * 0.040, matPCB, tube * 0.030);
+    flex.position.z = 0.018;
+    lift.add(flex);
+    for(let i=0;i<4;i++){
+      const strip = roundedPart(tube * (0.72 - i * 0.08), tube * 0.020, tube * 0.020, matGold, tube * 0.006);
+      strip.position.set(0, -tube * 0.100 + i * tube * 0.060, tube * 0.058);
+      lift.add(strip);
+    }
+    const lna = roundedPart(tube * 0.16, tube * 0.14, tube * 0.050, matChip, tube * 0.012);
+    lna.position.set(tube * 0.40, tube * 0.025, tube * 0.070);
+    lift.add(lna);
+  } else if(s.id === 'heart'){
+    const base = roundedPart(w * 0.76, h * 0.72, tube * 0.014, matChip, tube * 0.026);
+    base.position.z = 0.004;
+    lift.add(base);
+    const glass = roundedPart(w * 0.52, h * 0.34, tube * 0.010, matGlass, tube * 0.024);
+    glass.position.set(0, 0, tube * 0.014);
+    lift.add(glass);
+    for(const [x,col] of [[-0.20,0x39ff88],[0,0x39ff88],[0.20,0xff5b55]]){
+      const led = new THREE.Mesh(new THREE.CylinderGeometry(tube * 0.032, tube * 0.032, tube * 0.008, 18), new THREE.MeshBasicMaterial({color:col}));
+      led.rotation.x = Math.PI / 2;
+      led.position.set(x * tube, tube * 0.010, tube * 0.024);
+      lift.add(led);
+    }
+  } else if(s.id === 'temp'){
+    const base = roundedPart(w * 0.68, h * 0.68, tube * 0.014, matPCB, tube * 0.024);
+    base.position.z = 0.004;
+    lift.add(base);
+    const can = new THREE.Mesh(new THREE.CylinderGeometry(tube * 0.070, tube * 0.070, tube * 0.010, 26), matSilver);
+    can.rotation.x = Math.PI / 2;
+    can.position.z = tube * 0.016;
+    lift.add(can);
+    const aperture = new THREE.Mesh(new THREE.CylinderGeometry(tube * 0.034, tube * 0.034, tube * 0.008, 20), matGlow);
+    aperture.rotation.x = Math.PI / 2;
+    aperture.position.z = tube * 0.024;
+    lift.add(aperture);
+  } else {
+    lift.add(board);
+    const imu = roundedPart(tube * 0.22, tube * 0.22, tube * 0.070, matChip, tube * 0.016);
+    imu.position.z = tube * 0.080;
+    lift.add(imu);
+    const xAxis = new THREE.Mesh(new THREE.BoxGeometry(tube * 0.46, tube * 0.018, tube * 0.018), matGlow);
+    xAxis.position.z = tube * 0.122;
+    lift.add(xAxis);
+    const yAxis = new THREE.Mesh(new THREE.BoxGeometry(tube * 0.018, tube * 0.34, tube * 0.018), matGold);
+    yAxis.position.z = tube * 0.125;
+    lift.add(yAxis);
+  }
+
+  const isSkinSensor = s.id === 'heart' || s.id === 'temp';
+  const zFace = tube * S.bandFlat;
+  placeOnRing(g, ang, isSkinSensor ? R - tube * 0.68 : R + tube * 0.02, isSkinSensor ? -zFace - tube * 0.012 : zFace + 0.030);
+  lift.userData = { baseZ:0, ang };
+  lift.traverse(o=>{ if(o.isMesh) o.castShadow = o.receiveShadow = true; });
+  return { group:g, lift };
+}
+
+function dispose(grp){
+  grp.traverse(o=>{
+    if(o.geometry) o.geometry.dispose();
+    if(o.material){ (Array.isArray(o.material)?o.material:[o.material]).forEach(x=>x.dispose()); }
+    if(o.isCSS2DObject && o.element?.parentNode) o.element.parentNode.removeChild(o.element);
+  });
+}
+
+document.getElementById('explode').onchange = (e)=>{ local.explode = e.target.checked; };
+document.getElementById('spin').onchange = (e)=>{ local.spin = e.target.checked; };
+document.getElementById('back').onclick = ()=>{ if(window.opener) window.close(); else location.href = '../pet-collar-3d.html'; };
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.033);
+  const spinTarget = local.spin && root ? 0.24 : 0;
+  autoSpinSpeed += (spinTarget - autoSpinSpeed) * 0.08;
+  if(root && Math.abs(autoSpinSpeed) > 0.0001) root.rotation.y += autoSpinSpeed * dt;
+  if(lifts.length){
+    const target = local.explode ? 1 : 0;
+    explodeF += (target - explodeF) * 0.1;
+    for(const lift of lifts){
+      const off = lift.userData.explodeZ * explodeF;
+      lift.position.set(0, off, 0);
+    }
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+function onResize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); labelRenderer.setSize(innerWidth,innerHeight); }
+
+init();
+</script>
+</body>
+</html>
