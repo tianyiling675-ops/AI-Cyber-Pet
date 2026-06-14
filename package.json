@@ -1,0 +1,11 @@
+{
+  "name": "cyberpet-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:web": "npm --prefix web run dev",
+    "dev:desktop": "npm --prefix desktop run dev",
+    "build:web": "npm --prefix web run build",
+    "build:desktop": "npm --prefix desktop run build"
+  }
+}

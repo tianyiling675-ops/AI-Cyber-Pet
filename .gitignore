@@ -1,0 +1,11 @@
+backend/.venv/
+backend/cyberpet.db
+backend/uploads/
+backend/app/__pycache__/
+backend/__pycache__/
+simulator/__pycache__/
+web/node_modules/
+web/dist/
+desktop/node_modules/
+desktop/dist/
+*.log
